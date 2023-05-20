@@ -11,16 +11,19 @@ customers as (
 
 payments as (
     select * from {{ source('dbt_bgrigoryan', 'payments') }}
-)
+),
 
 -- Logical CTEs
+successful_payments as (
+    select  
+        orderid as order_id, 
+        max(created) as payment_finalized_date, 
+        sum(amount) / 100.0 as total_amount_paid
+    from payments
+    where status <> 'fail'
+    group by 1
+    ),
 
--- Final CTE
-
-
-
-----
-with 
 paid_oders as 
     (select 
         oders.id as order_id,
@@ -33,16 +36,8 @@ paid_oders as
         c.last_name as customer_last_name
 
     from oders
-    left join 
-    (select  
-        orderid as order_id, 
-        max(created) as payment_finalized_date, 
-        sum(amount) / 100.0 as total_amount_paid
-    from payments
-    where status <> 'fail'
-    group by 1
-    ) p on oders.id = p.order_id
-    left join analytics.dbt_bgrigoryan.customers c on oders.user_id = c.id 
+    left join successful_payments p on oders.id = p.order_id
+    left join customers c on oders.user_id = c.id 
     ),
 
 customer_oders as 
@@ -52,12 +47,13 @@ customer_oders as
         max(order_date) as most_recent_order_date,
         count(oders.id) as number_of_oders
     from customers c 
-    
-    left join oders
-    on oders.user_id = c.id 
+    left join oders on oders.user_id = c.id 
     group by 1
-    )
+    ),
 
+-- Final CTE
+
+final as (
 select
     p.*,
     row_number() over (order by p.order_id) as transaction_seq,
@@ -83,3 +79,8 @@ left outer join
     order by p.order_id
 ) x on x.order_id = p.order_id
 order by order_id
+)
+
+-- simple select statement
+
+select * from final 
