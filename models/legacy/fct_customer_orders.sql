@@ -1,3 +1,25 @@
+with
+
+-- Import CTEs
+orders as (
+    select * from {{ source('dbt_bgrigoryan', 'orders') }}
+),
+
+customers as (
+    select * from {{ source('dbt_bgrigoryan', 'customers') }}
+),
+
+payments as (
+    select * from {{ source('dbt_bgrigoryan', 'payments') }}
+)
+
+-- Logical CTEs
+
+-- Final CTE
+
+
+
+----
 with 
 paid_oders as 
     (select 
@@ -10,13 +32,13 @@ paid_oders as
         c.first_name as customer_first_name,
         c.last_name as customer_last_name
 
-    from {{ source('dbt_bgrigoryan', 'orders') }} as oders
+    from oders
     left join 
     (select  
         orderid as order_id, 
         max(created) as payment_finalized_date, 
         sum(amount) / 100.0 as total_amount_paid
-    from {{ source('dbt_bgrigoryan', 'payments') }}
+    from payments
     where status <> 'fail'
     group by 1
     ) p on oders.id = p.order_id
@@ -29,9 +51,9 @@ customer_oders as
         min(order_date) as first_order_date,
         max(order_date) as most_recent_order_date,
         count(oders.id) as number_of_oders
-    from {{ source('dbt_bgrigoryan', 'customers') }} c 
+    from customers c 
     
-    left join {{ source('dbt_bgrigoryan', 'orders') }} as oders
+    left join oders
     on oders.user_id = c.id 
     group by 1
     )
