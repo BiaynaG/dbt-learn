@@ -44,8 +44,8 @@ paid_orders as
 customer_orders as 
     (select 
         customers.id as customer_id,
-        min(order_date) as first_order_date,
-        max(order_date) as most_recent_order_date,
+        min(orders.order_date) as first_order_date,
+        max(orders.order_date) as most_recent_order_date,
         count(orders.id) as number_of_orders
     from customers
     left join orders on orders.user_id = customers.id 
@@ -56,7 +56,14 @@ customer_orders as
 
 final as (
 select
-    paid_orders.*,
+    paid_orders.order_id,
+    paid_orders.customer_id,
+    paid_orders.order_placed_at,
+    paid_orders.order_status,
+    paid_orders.total_amount_paid,
+    paid_orders.payment_finalized_date,
+    paid_orders.customer_first_name,
+    paid_orders.customer_last_name,
 
     -- Sales transcation sequence
     row_number() over (order by paid_orders.order_id) as transaction_seq,
@@ -77,7 +84,7 @@ select
     customer_orders.first_order_date as fdos
 
 from paid_orders
-left join customer_orders using (customer_id)
+left join customer_orders on paid_orders.customer_id = customer_orders.customer_id
 
 -- simple select statement
 
