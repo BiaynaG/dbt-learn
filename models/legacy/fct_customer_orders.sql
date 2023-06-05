@@ -40,17 +40,6 @@ paid_orders as
     left join successful_payments on orders.id = successful_payments.order_id
     left join customers on orders.user_id = customers.id 
     ),
--- Total number of orders per customer
-customer_orders as 
-    (select 
-        customers.id as customer_id,
-        min(orders.order_date) as first_order_date,
-        max(orders.order_date) as most_recent_order_date,
-        count(orders.id) as number_of_orders
-    from customers
-    left join orders on orders.user_id = customers.id 
-    group by 1
-    ),
 
 -- Final CTE
 
@@ -71,21 +60,22 @@ select
     -- Customer order/sales sequence
     row_number() over (partition by customer_id order by paid_orders.order_id) as customer_sales_seq,
 
-    -- New vs returning customer
+    -- New vs returning customer, not related to order status returned
     case 
-        when customer_orders.first_order_date = paid_orders.order_placed_at then 'new'
+        when (rank() over (partition by paid_orders.customer_id order by paid_orders.order_placed_at)) = 1 then 'new'
         else 'return' 
     end as nvsr,
 
     -- We need the cumulative CLV, ie growing with each next order and not the total cumulative for each customer id
-    sum(p.total_amount_paid) over (partition by paid_orders.customer_id order by paid_orders.order_placed_at) as customer_lifetime_value
+    sum(paid_orders.total_amount_paid) over (partition by paid_orders.customer_id order by paid_orders.order_placed_at) as customer_lifetime_value,
     
     -- First day of sales
-    customer_orders.first_order_date as fdos
+    first_value(paid_orders.order_placed_at) over(partition by customer_id order by paid_orders.order_placed_at) as fdos
 
-from paid_orders
-left join customer_orders on paid_orders.customer_id = customer_orders.customer_id
+from paid_orders)
+--left join customer_orders on paid_orders.customer_id = customer_orders.customer_id
 
 -- simple select statement
 
 select * from final 
+order by customer_id
